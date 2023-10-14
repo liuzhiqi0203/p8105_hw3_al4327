@@ -17,7 +17,6 @@ library(patchwork)
 ```{r}
 library(p8105.datasets)
 data("instacart")
-instacart
 ```
 
 * Number of aisles and most items ordered from
@@ -27,14 +26,17 @@ instacart |>
   arrange(desc(n))
 ```
 
-There are 134 aisles and fresh vegetables is the aisle that the most items ordered from 
+There are 134 aisles and fresh vegetables is the aisle that the most items ordered from.
 
 * Plot that shows the number of items ordered in each aisle, limiting this to aisles with more than 10000 items ordered
 ```{r}
 instacart |>
   count(aisle) |>
   filter(n > 10000) |> 
-  ggplot(aes(x = reorder(aisle, -n), y = n)) + geom_point() + labs(title = "Number of items ordered each aisle", x = "Aisle Name", y = "Number of items ordered") +       theme(axis.text.x = element_text(angle = 50, hjust = 1))
+  ggplot(aes(x = reorder(aisle, -n), y = n)) + 
+  geom_point() + 
+  labs(title = "Number of items ordered each aisle", x = "Aisle Name", y = "Number of items ordered") +       
+  theme(axis.text.x = element_text(angle = 50, hjust = 1))
 
 ```
 
@@ -75,13 +77,13 @@ data("brfss_smart2010")
 * Doing some cleaning
 ```{r}
 brfss_df = 
-  brfss_smart2010 |>
-  janitor::clean_names ()|>
-  filter(topic == "Overall Health",
-         response %in% c("Poor", "Fair", "Good", "Very Good,", "Excellent")) |>
-  mutate (response = factor(response, level = c("Poor", "Fair", "Good", "Very Good,", "Excellent", order = TRUE)))
+  brfss_smart2010 |> 
+  janitor::clean_names() |> 
+  filter( 
+    topic == "Overall Health",
+    response %in% c("Poor", "Fair", "Good", "Very good", "Excellent")) |> 
+  mutate(response = factor(response, levels = c("Poor", "Fair", "Good", "Very good", "Excellent"), ordered = TRUE))
 
-brfss_df 
 ```
 
 * Question: In 2002, which states were observed at 7 or more locations? What about in 2010?
@@ -108,37 +110,165 @@ In 2002, CA, CO, FL, MA, MD, NC, NE, NJ, NY, OH, PA, SC, TX, and WA, total 14 st
 
 * Construct a dataset that is limited to Excellent responses, and contains, year, state, and a variable that averages the data_value across locations within a state
 
-* Making a “spaghetti” plot
-
 ```{r}
-brfss_df |>
+excellent_response_df = 
+  brfss_df |>
   filter(response == "Excellent") |>
   group_by(year, locationabbr, locationdesc) |>
-  summarize(average_data_value = mean(data_value)) |> 
-  ggplot(aes(x = year, y = average_data_value, group = locationabbr, color = locationabbr)) + geom_line() + labs(
-    title = "average the data_value across locations within a state for Excellent",
-    x = "Year",
-    y = "Average Value") + theme_bw()
+  summarize(average_data_value = mean(data_value))
 ```
+
+* Making a “spaghetti” plot
+```{r}
+excellent_response_df |>
+  ggplot(aes(x = year, y = average_data_value, group = locationabbr, color = locationabbr)) +
+  geom_line(alpha = 0.5) +
+  labs(
+    title = "Average the data_value across locations within a state for 'Excellent'",
+    x = "Year",
+    y = "Average Value") +
+    theme_bw()
+```
+
+The plot shows the average percent of responses in the “Excellent” category. The responses range from around 10% to 45% of “Excellent” response. The average of "excellent" response stays around 25% from 2002 to 2010.
 
 * Make a two-panel plot showing, for the years 2006, and 2010, distribution of data_value for responses (“Poor” to “Excellent”) among locations in NY State.
 
 ```{r}
 brfss_df |>
-  filter(locationabbr == "NY") |>
-  filter(year %in% c("2006", "2010")) |>
-  ggplot(aes(x = response, y = data_value, group = locationabbr, color = locationabbr)) + geom_boxplot() + facet_grid(. ~ year) + labs (
-    title = "Distribution of data_value for responses for 2006 and 2010",
+  filter(locationabbr == "NY", 
+         year %in% c("2006", "2010")) |>
+  ggplot(aes(x = response, y = data_value, group = locationdesc, color = locationdesc)) + 
+  geom_line() + 
+  facet_grid(. ~ year) + 
+  labs (
+    title = "Distribution of data_value of responses for 2006 and 2010",
     x = "Response",
     y = "Data Value",
     color = "Location"
   )
 ```
 
+The plot shows the distribution of responses in NY for 2006 and 2010. The distributation is similar across different years. More locations were added in the 2010 distribution. In 2006, the greatest number of responses come from "Good". However, in 2010, there are more "very good" responses. 
 
+# Problem 3
 
+* loading the demographic dataset and clean
 
+```{r}
+demo_df = read_csv("./nhanes_covar.csv", skip = 4) |> 
+  janitor::clean_names() |> 
+  filter(age >= "21") |>
+  drop_na() |>
+  mutate(
+    sex = case_match(
+    sex, 
+    1 ~ "Male", 
+    2 ~ "Female"),
+    sex = as.factor(sex),
+    education = case_match(
+    education, 
+    1 ~ "Less than high school", 
+    2 ~ "High school equivalent", 
+    3 ~ "More than high school"
+  ),
+  education = as.factor(education))
 
+```
 
+* loading the accelerometer dataset
 
+```{r}
+accel_df=read_csv("./nhanes_accel.csv") |>
+  janitor::clean_names() |>
+  pivot_longer(
+  min1:min1440,
+  names_to = "time",
+  values_to = "accel_minutes",
+  names_prefix = "min"
+ ) 
+
+```
+
+* merge demographic and accelerometer datasets
+
+```{r}
+merge_nhanes = left_join(demo_df, accel_df, by = "seqn") |>
+  mutate(time= as.numeric(time))
+```
+
+* Produce a reader-friendly table for the number of men and women in each education category, and create a visualization of the age distributions for men and women in each education category
+
+```{r}
+merge_nhanes |> 
+  group_by(sex, education) |> 
+  summarize(count = n()) |> 
+  pivot_wider(names_from = education, values_from = count) |> 
+  knitr::kable()
+```
+
+According to the table, the biggest difference between women and men is shown for people who have high school equivalent education. More participants involoved are from people who have more than high school education.
+
+* Visualization
+
+```{r}
+ggplot(merge_nhanes, aes(x = education, y = age, fill = sex)) +
+  geom_boxplot() + 
+  labs(title = "age distributions between gender in each education category",
+       x = "Education Level",
+       y = "Age") +
+  theme_bw() 
+```
+
+Comments:
+
+From the table and plot, most participants in this study have an education of high school equivalent. There are more male participant than female among people with hgih school equivalent education. 
+
+* aggregate across minutes to create a total activity variable for each participant.
+
+```{r}
+total_activity_df= 
+  merge_nhanes |>
+  group_by(seqn, sex, age, education) |>
+  summarize(total_activity = sum(accel_minutes))
+```
+
+* Plot these total activities (y-axis) against age (x-axis); your plot should compare men to women and have separate panels for each education level. Include a trend line or a smooth to illustrate differences
+
+```{r}
+total_activity_df |>
+  ggplot(aes(x = age, y = total_activity, color = sex)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth (se= FALSE) +
+  facet_grid(. ~ education) +
+  labs(
+    title = "Total activity vs. age",
+    x = "age",
+    y = "total activity"
+  )
+```
+
+Comments:
+
+From the plot, we can see the relationship between total activities and age divided by different education level. 
+The trend line shows a nonlinear relationship between variables. Total activities decrease with the increase in age across all groups. Women tend to have more physical activity for "more than high school" education level. Overall, people with "more than high school" education level have more physical activity than other cateogries. 
+
+* Make a three-panel plot that shows the 24-hour activity time courses for each education level and use color to indicate sex. Describe in words any patterns or conclusions you can make based on this graph; including smooth trends may help identify differences.
+
+```{r}
+merge_nhanes |>
+  ggplot(aes(x= time, y = accel_minutes, group = seqn, color = sex)) +
+  geom_line(alpha = 0.7) +
+  geom_smooth(aes(group = sex), se = FALSE) +
+  facet_grid(. ~education) +
+  labs(
+    title = "24-hour activity",
+    x = "minutes",
+    y = "total activity"
+  )
+```
+
+Comments:
+
+Based on the plot, people across all levels of education tend to have similar trend of activity during 24 hours period of time. The activity decreases from 0 minute to 250 minutes, increases from 250 minutes to about 1000 minutes, and decreases again. The trend fulfills the pattern of people's normal daily activity trend. Noticeably, men with more than high school education have the most activities at around 1150 minutes than other groups. 
 
