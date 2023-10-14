@@ -10,9 +10,9 @@ library(ggridges)
 library(patchwork)
 ```
 
-## Problem 1
+# Problem 1
 
-### load the dataset
+* load the dataset
 
 ```{r}
 library(p8105.datasets)
@@ -20,16 +20,16 @@ data("instacart")
 instacart
 ```
 
-### Numbr of aisles and most items ordered from
+* Number of aisles and most items ordered from
 ```{r}
 instacart |>
   count(aisle) |>
   arrange(desc(n))
 ```
 
-#### There are 134 aisles and fresh vegetables is the aisle that the most items ordered from 
+There are 134 aisles and fresh vegetables is the aisle that the most items ordered from 
 
-### Plot that shows the number of items ordered in each aisle, limiting this to aisles with more than 10000 items ordered
+* Plot that shows the number of items ordered in each aisle, limiting this to aisles with more than 10000 items ordered
 ```{r}
 instacart |>
   count(aisle) |>
@@ -37,7 +37,8 @@ instacart |>
   ggplot(aes(x = reorder(aisle, -n), y = n)) + geom_point() + labs(title = "Number of items ordered each aisle", x = "Aisle Name", y = "Number of items ordered") +       theme(axis.text.x = element_text(angle = 50, hjust = 1))
 
 ```
-### Making a table showing the three most popular items in each of the aisles “baking ingredients”, “dog food care”, and “packaged vegetables fruits”
+
+* Making a table showing the three most popular items in each of the aisles “baking ingredients”, “dog food care”, and “packaged vegetables fruits”
 
 ```{r}
 instacart |>
@@ -50,7 +51,7 @@ instacart |>
   knitr::kable()
 ```
 
-### Making a table showing the mean hour of the day at which Pink Lady Apples and Coffee Ice Cream are ordered on each day of the week
+* Making a table showing the mean hour of the day at which Pink Lady Apples and Coffee Ice Cream are ordered on each day of the week
 
 ```{r}
 instacart |>
@@ -62,6 +63,80 @@ instacart |>
     values_from = mean_hour) |>
   knitr::kable(digits = 2)
 ```
+
+# Probelm 2
+
+* Loading the dataset
+```{r}
+library(p8105.datasets)
+data("brfss_smart2010")
+```
+
+* Doing some cleaning
+```{r}
+brfss_df = 
+  brfss_smart2010 |>
+  janitor::clean_names ()|>
+  filter(topic == "Overall Health",
+         response %in% c("Poor", "Fair", "Good", "Very Good,", "Excellent")) |>
+  mutate (response = factor(response, level = c("Poor", "Fair", "Good", "Very Good,", "Excellent", order = TRUE)))
+
+brfss_df 
+```
+
+* Question: In 2002, which states were observed at 7 or more locations? What about in 2010?
+
+```{r}
+brfss_df |> 
+  filter (year == "2002") |> 
+  group_by (year, locationabbr) |> 
+  summarize (locations = n_distinct(locationdesc)) |> 
+  filter (locations >= 7) 
+```
+
+In 2002, CT, FL, MA, NC, NJ, and PA, total 6 states were observed at 7 or more locations
+
+```{r}
+brfss_df |> 
+  filter (year == "2010") |> 
+  group_by (year, locationabbr) |> 
+  summarize (locations = n_distinct(locationdesc)) |> 
+  filter (locations >= 7) 
+```
+
+In 2002, CA, CO, FL, MA, MD, NC, NE, NJ, NY, OH, PA, SC, TX, and WA, total 14 states were observed at 7 or more locations
+
+* Construct a dataset that is limited to Excellent responses, and contains, year, state, and a variable that averages the data_value across locations within a state
+
+* Making a “spaghetti” plot
+
+```{r}
+brfss_df |>
+  filter(response == "Excellent") |>
+  group_by(year, locationabbr, locationdesc) |>
+  summarize(average_data_value = mean(data_value)) |> 
+  ggplot(aes(x = year, y = average_data_value, group = locationabbr, color = locationabbr)) + geom_line() + labs(
+    title = "average the data_value across locations within a state for Excellent",
+    x = "Year",
+    y = "Average Value") + theme_bw()
+```
+
+* Make a two-panel plot showing, for the years 2006, and 2010, distribution of data_value for responses (“Poor” to “Excellent”) among locations in NY State.
+
+```{r}
+brfss_df |>
+  filter(locationabbr == "NY") |>
+  filter(year %in% c("2006", "2010")) |>
+  ggplot(aes(x = response, y = data_value, group = locationabbr, color = locationabbr)) + geom_boxplot() + facet_grid(. ~ year) + labs (
+    title = "Distribution of data_value for responses for 2006 and 2010",
+    x = "Response",
+    y = "Data Value",
+    color = "Location"
+  )
+```
+
+
+
 
 
 
